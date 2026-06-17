@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>The Mossy Glade — Prints by Charles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --moss-deep: #14241069;
+    --ink: #f2f0e6;
+    --ink-dim: rgba(242, 240, 230, 0.65);
+    --glass: rgba(16, 26, 14, 0.78);
+    --glass-border: rgba(190, 215, 160, 0.16);
+    --accent: #b8d48a;
+    --accent-deep: #7da356;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; overflow: hidden;
+    background: #16240f;
+    font-family: 'Inter', -apple-system, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  canvas { display: block; touch-action: none; }
+
+  /* ---------- vignette ---------- */
+  #vignette {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background:
+      radial-gradient(ellipse at 50% 44%, transparent 46%, rgba(20, 10, 4, 0.30) 78%, rgba(12, 6, 3, 0.58) 100%),
+      linear-gradient(to bottom, rgba(40, 20, 8, 0.10) 0%, transparent 22%);
+  }
+
+  /* ---------- intro overlay ---------- */
+  #intro {
+    position: fixed; inset: 0; z-index: 1000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at 50% 38%, #243d18 0%, #15240e 55%, #0c1607 100%);
+    transition: opacity 1.6s ease, visibility 1.6s;
+    text-align: center; padding: 24px;
+  }
+  #intro.hidden { opacity: 0; visibility: hidden; }
+  #intro .leaf { font-size: 26px; opacity: 0.85; margin-bottom: 18px; animation: floaty 5s ease-in-out infinite; }
+  #intro .intro-logo { width: clamp(120px, 22vw, 180px); height: auto; opacity: 0.95; margin-bottom: 22px; animation: floaty 5s ease-in-out infinite; }
+  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+  #intro h1 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 500;
+    font-size: clamp(38px, 7vw, 64px); margin: 0 0 10px; letter-spacing: 0.04em;
+    color: var(--ink);
+  }
+  #intro p {
+    font-size: 12.5px; letter-spacing: 0.28em; text-transform: uppercase;
+    color: var(--ink-dim); margin: 0 0 42px; font-weight: 300; line-height: 2;
+  }
+  #enter-btn {
+    font-family: 'Inter', sans-serif; font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase;
+    color: var(--ink); background: rgba(184, 212, 138, 0.08);
+    border: 1px solid rgba(184, 212, 138, 0.35); border-radius: 999px;
+    padding: 16px 44px; cursor: pointer; transition: all 0.45s ease;
+  }
+  #enter-btn:hover { background: rgba(184, 212, 138, 0.2); border-color: rgba(184, 212, 138, 0.7); transform: translateY(-2px); }
+  #intro .hint { margin-top: 26px; font-size: 10.5px; letter-spacing: 0.18em; color: rgba(242,240,230,0.4); text-transform: uppercase; }
+
+  /* ---------- HUD ---------- */
+  #hud-title {
+    position: fixed; top: 26px; left: 28px; z-index: 20; pointer-events: none;
+    text-shadow: 0 1px 12px rgba(0,0,0,0.55);
+  }
+  #hud-title h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 24px; margin: 0; letter-spacing: 0.06em; }
+  #hud-title span { display: block; font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-dim); margin-top: 5px; font-weight: 300; }
+
+  .hud-controls { position: fixed; top: 22px; right: 24px; z-index: 30; display: flex; gap: 10px; }
+  /* Cart is a labeled pill so it reads clearly as "your cart" */
+  #cart-btn {
+    display: flex; align-items: center; gap: 10px;
+    height: 50px; padding: 0 22px 0 19px; border-radius: 999px;
+    background: var(--glass); border: 1px solid rgba(190, 215, 160, 0.30);
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    color: var(--ink); cursor: pointer; position: relative;
+    font-family: 'Inter', sans-serif; font-size: 11.5px; font-weight: 500;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    box-shadow: 0 6px 22px rgba(0,0,0,0.28);
+    transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+  }
+  #cart-btn:hover { border-color: rgba(184, 212, 138, 0.65); background: rgba(184, 212, 138, 0.16); transform: translateY(-1px); }
+  #cart-btn svg { width: 20px; height: 20px; display: block; }
+  .cart-label { line-height: 1; padding-top: 1px; }
+  #cart-count {
+    min-width: 22px; height: 22px; margin-left: 2px;
+    background: var(--accent); color: #18260e; border-radius: 999px;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0;
+    display: flex; align-items: center; justify-content: center; padding: 0 6px;
+    opacity: 0; transform: scale(0.4); width: 0; min-width: 0; margin-left: -10px;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  #cart-count.visible { opacity: 1; transform: scale(1); min-width: 22px; margin-left: 2px; }
+  /* attention pulse when an item is added */
+  #cart-btn.bump { animation: cart-pop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  #cart-btn::after {
+    content: ''; position: absolute; inset: -3px; border-radius: 999px;
+    border: 2px solid var(--accent); opacity: 0; pointer-events: none;
+  }
+  #cart-btn.bump::after { animation: cart-ring 0.75s ease-out; }
+  @keyframes cart-pop { 0% { transform: scale(1); } 38% { transform: scale(1.14); } 100% { transform: scale(1); } }
+  @keyframes cart-ring { 0% { opacity: 0.85; transform: scale(0.92); } 100% { opacity: 0; transform: scale(1.4); } }
+
+  #hint-bar {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); z-index: 20;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-dim);
+    pointer-events: none; text-shadow: 0 1px 8px rgba(0,0,0,0.6); white-space: nowrap;
+    transition: opacity 0.8s;
+  }
+  #hint-bar.hidden { opacity: 0; }
+
+  /* ---------- product panel ---------- */
+  #product-panel {
+    position: fixed; top: 0; right: 0; width: 390px; height: 100vh; z-index: 200;
+    background: var(--glass); backdrop-filter: blur(26px); -webkit-backdrop-filter: blur(26px);
+    border-left: 1px solid var(--glass-border);
+    transform: translateX(105%); transition: transform 0.65s cubic-bezier(0.22, 0.9, 0.3, 1);
+    padding: 64px 38px 38px; overflow-y: auto;
+  }
+  #product-panel.open { transform: translateX(0); }
+  .panel-close {
+    position: absolute; top: 18px; right: 18px; width: 38px; height: 38px;
+    background: transparent; border: 1px solid var(--glass-border); border-radius: 50%;
+    color: var(--ink-dim); font-size: 17px; cursor: pointer; transition: all 0.3s;
+  }
+  .panel-close:hover { color: var(--ink); border-color: rgba(184,212,138,0.5); }
+  #product-subtitle { font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--accent); margin: 0 0 10px; }
+  #product-title { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 34px; margin: 0 0 18px; line-height: 1.15; }
+  #product-description { font-size: 13.5px; line-height: 1.75; color: var(--ink-dim); font-weight: 300; margin: 0 0 28px; }
+  .product-specs { border-top: 1px solid var(--glass-border); margin-bottom: 30px; }
+  .spec-row { display: flex; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid var(--glass-border); font-size: 12px; }
+  .spec-label { color: rgba(242,240,230,0.45); letter-spacing: 0.14em; text-transform: uppercase; font-size: 10px; padding-top: 2px; }
+  .spec-value { font-weight: 400; text-align: right; }
+  .spec-row.price .spec-value { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent); }
+  #flip-card-btn {
+    width: 100%; padding: 13px; margin-bottom: 12px;
+    background: transparent; border: 1px solid var(--glass-border); border-radius: 8px;
+    color: var(--ink-dim); font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.3s; font-family: 'Inter', sans-serif;
+  }
+  #flip-card-btn:hover { color: var(--ink); border-color: rgba(184,212,138,0.5); }
+  #add-to-cart {
+    width: 100%; padding: 17px; background: var(--accent); border: none; border-radius: 8px;
+    color: #1a2810; font-size: 12px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.3s; font-family: 'Inter', sans-serif;
+  }
+  #add-to-cart:hover { background: #cbe49e; transform: translateY(-1px); }
+  #add-to-cart:active { transform: scale(0.98); }
+  .drag-hint { text-align: center; font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(242,240,230,0.35); margin: 18px 0 26px; }
+  /* no harsh blue focus rim on the panel buttons — use a soft accent border instead */
+  #flip-card-btn:focus, #add-to-cart:focus, #flip-card-btn:focus-visible, #add-to-cart:focus-visible { outline: none; }
+  #flip-card-btn:focus-visible { border-color: rgba(184,212,138,0.6); }
+  #add-to-cart:focus-visible { box-shadow: 0 0 0 2px rgba(184,212,138,0.5); }
+  /* new sheet structure — desktop just stacks these; handle/hint are mobile-only */
+  .sheet-handle { display: none; }
+  .sheet-price { display: block; font-family: 'Cormorant Garamond', serif; font-size: 28px; color: var(--accent); margin: -8px 0 22px; }
+  .sheet-hint { display: none; }
+
+  /* ---------- cart drawer ---------- */
+  #cart-drawer {
+    position: fixed; top: 0; right: 0; width: 410px; height: 100vh; z-index: 300;
+    background: var(--glass); backdrop-filter: blur(28px); -webkit-backdrop-filter: blur(28px);
+    border-left: 1px solid var(--glass-border);
+    transform: translateX(105%); transition: transform 0.6s cubic-bezier(0.22, 0.9, 0.3, 1);
+    display: flex; flex-direction: column; padding: 0;
+  }
+  #cart-drawer.open { transform: translateX(0); }
+  .cart-head { padding: 28px 34px 20px; border-bottom: 1px solid var(--glass-border); display: flex; justify-content: space-between; align-items: center; }
+  .cart-head h2 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 27px; margin: 0; }
+  #cart-items { flex: 1; overflow-y: auto; padding: 10px 34px; }
+  .cart-empty { text-align: center; color: rgba(242,240,230,0.4); font-size: 12.5px; letter-spacing: 0.1em; padding: 70px 0; font-weight: 300; line-height: 2; }
+  .cart-item { display: flex; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--glass-border); align-items: center; }
+  .cart-item img { width: 52px; height: 73px; object-fit: cover; border-radius: 4px; box-shadow: 0 4px 14px rgba(0,0,0,0.4); }
+  .ci-info { flex: 1; }
+  .ci-title { font-size: 13px; font-weight: 500; margin-bottom: 3px; }
+  .ci-sub { font-size: 10.5px; color: rgba(242,240,230,0.45); }
+  .ci-price { font-family: 'Cormorant Garamond', serif; font-size: 18px; color: var(--accent); }
+  .ci-qty { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .ci-qty button {
+    width: 24px; height: 24px; border-radius: 50%; background: transparent;
+    border: 1px solid var(--glass-border); color: var(--ink-dim); cursor: pointer; font-size: 13px;
+    line-height: 1; transition: all 0.25s;
+  }
+  .ci-qty button:hover { border-color: rgba(184,212,138,0.5); color: var(--ink); }
+  .ci-qty span { font-size: 12.5px; min-width: 16px; text-align: center; }
+  .cart-foot { padding: 22px 34px 30px; border-top: 1px solid var(--glass-border); }
+  .cart-subtotal { display: flex; justify-content: space-between; margin-bottom: 18px; font-size: 13px; }
+  .cart-subtotal strong { font-family: 'Cormorant Garamond', serif; font-size: 24px; color: var(--accent); font-weight: 500; }
+  #checkout-btn {
+    width: 100%; padding: 17px; background: var(--accent); border: none; border-radius: 8px;
+    color: #1a2810; font-size: 12px; font-weight: 600; letter-spacing: 0.24em; text-transform: uppercase;
+    cursor: pointer; transition: all 0.3s; font-family: 'Inter', sans-serif;
+  }
+  #checkout-btn:hover { background: #cbe49e; }
+  #checkout-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  #shop-status { margin-top: 13px; font-size: 10px; letter-spacing: 0.06em; line-height: 1.7; color: rgba(242,240,230,0.4); text-align: center; }
+  #shop-status.demo { color: #d8c47a; }
+
+  /* ---------- toast ---------- */
+  #toast {
+    position: fixed; bottom: 70px; left: 50%; transform: translate(-50%, 20px); z-index: 500;
+    background: var(--glass); border: 1px solid rgba(184,212,138,0.4); border-radius: 999px;
+    backdrop-filter: blur(16px); padding: 13px 28px; font-size: 12px; letter-spacing: 0.12em;
+    opacity: 0; pointer-events: none; transition: all 0.45s cubic-bezier(0.22, 0.9, 0.3, 1);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); }
+  #toast.clickable { pointer-events: auto; cursor: pointer; }
+  #toast .toast-cta { color: var(--accent); font-weight: 600; margin-left: 8px; }
+
+  /* ---------- mobile ---------- */
+  @media (max-width: 767px) {
+    #cart-drawer {
+      top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: auto; max-height: 80vh;
+      border-left: none; border-top: 1px solid var(--glass-border); border-radius: 22px 22px 0 0;
+      transform: translateY(105%); padding-top: 52px;
+    }
+    #cart-drawer.open { transform: translateY(0); }
+
+    /* ===== product sheet: peek bar ⇄ swipe-up full detail ===== */
+    #product-panel {
+      top: auto; bottom: 0; left: 0; right: 0; width: 100%; height: auto;
+      border-left: none; border-top: 1px solid var(--glass-border); border-radius: 22px 22px 0 0;
+      padding: 0 22px calc(18px + env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; overflow: hidden; max-height: 92vh;
+      transform: translateY(105%);
+      transition: transform 0.5s cubic-bezier(0.22, 0.9, 0.3, 1);
+      touch-action: none;
+    }
+    #product-panel.open { transform: translateY(0); }
+    #product-panel .panel-close { display: none; }   /* the handle + swipe replace × on mobile */
+    .sheet-handle {
+      display: block; width: 44px; height: 5px; border-radius: 999px;
+      background: rgba(242,240,230,0.45); margin: 12px auto 8px; flex: 0 0 auto; cursor: grab;
+    }
+    .sheet-head { flex: 0 0 auto; }
+    #product-subtitle { margin: 0 0 6px; }
+    #product-title { font-size: 25px; margin: 0 0 6px; }
+    .sheet-price { font-size: 23px; margin: 0; }
+    .sheet-body {
+      flex: 1 1 auto; overflow-y: auto; opacity: 1; margin-top: 14px;
+      transition: max-height 0.45s ease, opacity 0.3s ease, margin-top 0.3s ease; max-height: 62vh;
+    }
+    .sheet-foot { flex: 0 0 auto; padding-top: 14px; }
+    #add-to-cart { padding: 16px; }
+    .sheet-hint { display: block; text-align: center; font-size: 9px; letter-spacing: 0.16em;
+      text-transform: uppercase; color: rgba(242,240,230,0.4); margin-top: 9px; }
+
+    /* peek = just the title/price + Add to cart bar; details collapsed */
+    #product-panel.peek .sheet-body { max-height: 0; opacity: 0; margin-top: 0; }
+    /* expanded = full detail sheet covering the screen */
+    #product-panel.expanded { max-height: 94vh; }
+
+    #hud-title h1 { font-size: 19px; }
+    #hint-bar { font-size: 8.5px; bottom: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="vignette"></div>
+
+<!-- boot diagnostics: surfaces script/WebGL failures instead of a blank page -->
+<div id="boot-error" style="display:none; position:fixed; top:0; left:0; right:0; z-index:2000; background:#3a1414; color:#ffd9d9; font:12px/1.6 -apple-system, sans-serif; padding:12px 18px; white-space:pre-wrap;"></div>
+<script>
+  (function () {
+    var box = null;
+    function show(msg) {
+      if (!box) box = document.getElementById('boot-error');
+      if (!box) return;
+      box.style.display = 'block';
+      box.textContent += msg + '\n';
+    }
+    window.__bootError = show;
+    window.addEventListener('error', function (e) {
+      show('Error: ' + (e.message || 'unknown') + (e.filename ? '  [' + e.filename.split('/').slice(-2).join('/') + ':' + e.lineno + ']' : ''));
+    }, true);
+    window.addEventListener('unhandledrejection', function (e) {
+      show('Promise error: ' + (e.reason && (e.reason.message || e.reason)));
+    });
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        if (!window.__glade) show('The 3D engine did not start within 8 seconds. ' +
+          (window.WebGL2RenderingContext ? 'Check the messages above.' : 'This browser does not support WebGL2.'));
+      }, 8000);
+    });
+  })();
+</script>
+
+<div id="intro">
+  <img class="intro-logo" src="assets/logo.png" alt="Char" />
+  <h1>The Mossy Glade</h1>
+  <p>Four prints · resting in the moss · beside a quiet stream</p>
+  <button id="enter-btn">Enter the glade</button>
+</div>
+
+<div id="hud-title">
+  <h1>The Mossy Glade</h1>
+  <span>Fine prints · gathered in nature</span>
+</div>
+
+<div class="hud-controls">
+  <button id="cart-btn" title="Your gathered cart" aria-label="Open cart">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 5h2l1.6 10.4a1.5 1.5 0 0 0 1.5 1.3h8.3a1.5 1.5 0 0 0 1.5-1.2L20.5 8H6.2"/>
+      <circle cx="9.5" cy="20" r="1.1"/>
+      <circle cx="17.5" cy="20" r="1.1"/>
+    </svg>
+    <span class="cart-label">Cart</span>
+    <span id="cart-count">0</span>
+  </button>
+</div>
+
+<div id="hint-bar">Touch a card to lift it from the moss · drag to turn it over</div>
+
+<!-- product detail panel -->
+<div id="product-panel">
+  <div class="sheet-handle" id="sheet-handle"></div>
+  <button class="panel-close" id="panel-close" aria-label="Close">×</button>
+  <div class="sheet-head" id="sheet-head">
+    <p id="product-subtitle"></p>
+    <h2 id="product-title"></h2>
+    <span class="sheet-price" id="product-price"></span>
+  </div>
+  <div class="sheet-body">
+    <p id="product-description"></p>
+    <div class="product-specs">
+      <div class="spec-row"><span class="spec-label">Paper</span><span class="spec-value" id="product-paper"></span></div>
+      <div class="spec-row"><span class="spec-label">Size</span><span class="spec-value" id="product-size"></span></div>
+      <div class="spec-row"><span class="spec-label">Edition</span><span class="spec-value" id="product-edition"></span></div>
+    </div>
+    <button id="flip-card-btn">Turn the card over</button>
+    <div class="drag-hint">Drag the card to spin it · it floats while you look</div>
+  </div>
+  <div class="sheet-foot">
+    <button id="add-to-cart">Add to cart</button>
+    <div class="sheet-hint">Swipe up for details · swipe down to close</div>
+  </div>
+</div>
+
+<!-- cart drawer -->
+<div id="cart-drawer">
+  <div class="cart-head">
+    <h2>Gathered</h2>
+    <button class="panel-close" id="cart-close" style="position:static" aria-label="Close cart">×</button>
+  </div>
+  <div id="cart-items"></div>
+  <div class="cart-foot">
+    <div class="cart-subtotal"><span style="padding-top:6px;letter-spacing:0.14em;text-transform:uppercase;font-size:10px;color:rgba(242,240,230,0.45)">Subtotal</span><strong id="cart-subtotal">$0.00</strong></div>
+    <button id="checkout-btn">Checkout</button>
+    <div id="shop-status"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/build/three.module.js",
+    "three/addons/": "./vendor/three/examples/jsm/"
+  }
+}
+</script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
