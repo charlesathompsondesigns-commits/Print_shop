@@ -15,7 +15,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { SHOPIFY, isConfigured, checkoutUrl } from './shopify-config.js';
+import { SHOPIFY, isConfigured, checkoutUrl, buildCheckoutUrl } from './shopify-config.js';
 
 // ------------------------------------------------------------
 // Deterministic layout — seed Math.random (mulberry32) so the trees,
@@ -1959,8 +1959,8 @@ function computeFocusPose(card, t) {
   if (bottomSheet) {
     // close & large for a crisp print, centred in the open area above the sheet
     _focusPos.copy(camera.position)
-      .addScaledVector(_dir, 2.9)
-      .addScaledVector(camera.up, 0.5);
+      .addScaledVector(_dir, 2.85)
+      .addScaledVector(camera.up, -0.15);
   } else {
     _focusPos.copy(camera.position)
       .addScaledVector(_dir, 2.65)
@@ -1994,6 +1994,7 @@ let hoveredIndex = -1;
 let pointerDown = false;
 let dragging = false;
 let downX = 0, downY = 0, lastX = 0, lastY = 0, moveTotal = 0;
+let _focusCooldownUntil = 0;
 
 const panel = document.getElementById('product-panel');
 const hintBar = document.getElementById('hint-bar');
@@ -2021,6 +2022,7 @@ function focusCard(card) {
   closeCartDrawer();
   hintBar.classList.add('hidden');
   audio.swell();
+  _focusCooldownUntil = Date.now() + 450;
 }
 
 function unfocusCard(closePanel = true) {
@@ -2113,6 +2115,7 @@ cv.addEventListener('pointermove', (e) => {
 });
 
 cv.addEventListener('pointerup', (e) => {
+  if (IS_MOBILE && e.pointerType === 'mouse') return;
   pointerDown = false;
   const wasDrag = dragging;
   dragging = false;
@@ -2129,7 +2132,10 @@ cv.addEventListener('pointerup', (e) => {
 
   const card = pickCard(e.clientX, e.clientY);
   if (card && card !== focusedCard) focusCard(card);
-  else if (!card && focusedCard) unfocusCard();
+  else if (!card && focusedCard) {
+    if (Date.now() < _focusCooldownUntil) return;
+    unfocusCard();
+  }
 });
 
 document.getElementById('panel-close').addEventListener('click', () => unfocusCard());
@@ -2231,10 +2237,19 @@ cartItemsEl.addEventListener('click', (e) => {
   renderCart();
 });
 
-checkoutBtn.addEventListener('click', () => {
-  const url = checkoutUrl(cart.map(it => ({ variantKey: it.key, qty: it.qty })));
-  if (url) window.location.href = url;
-  else showToast('Demo mode — connect Shopify in js/shopify-config.js');
+checkoutBtn.addEventListener('click', async () => {
+  checkoutBtn.disabled = true;
+  checkoutBtn.textContent = 'Opening…';
+  try {
+    const url = await buildCheckoutUrl(cart.map(it => ({ variantKey: it.key, qty: it.qty })));
+    if (url) { window.location.href = url; return; }
+    showToast('Demo mode — connect Shopify in js/shopify-config.js');
+  } catch (err) {
+    showToast('Could not open checkout — please try again.');
+  } finally {
+    checkoutBtn.disabled = cart.length === 0;
+    checkoutBtn.textContent = 'Checkout';
+  }
 });
 
 function openCartDrawer() { renderCart(); cartDrawer.classList.add('open'); if (focusedCard) unfocusCard(); }
