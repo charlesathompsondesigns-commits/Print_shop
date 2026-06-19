@@ -1960,7 +1960,7 @@ function computeFocusPose(card, t) {
     // close & large for a crisp print, centred in the open area above the sheet
     _focusPos.copy(camera.position)
       .addScaledVector(_dir, 2.85)
-      .addScaledVector(camera.up, -0.15);
+      .addScaledVector(camera.up, 0.15);
   } else {
     _focusPos.copy(camera.position)
       .addScaledVector(_dir, 2.65)
@@ -2035,7 +2035,7 @@ function unfocusCard(closePanel = true) {
 // Mobile sheet gestures: swipe up = expand to full detail, swipe down = collapse / close.
 (function setupSheetSwipe() {
   let startY = null, startT = 0;
-  const onStart = (e) => { startY = e.touches ? e.touches[0].clientY : e.clientY; startT = Date.now(); };
+  const onStart = (e) => { if (Date.now() < _focusCooldownUntil) return; startY = e.touches ? e.touches[0].clientY : e.clientY; startT = Date.now(); };
   const onEnd = (e) => {
     if (startY === null) return;
     const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
@@ -2060,6 +2060,7 @@ function unfocusCard(closePanel = true) {
   const toggle = (e) => {
     if (e.target.closest('button')) return;              // don't hijack Add-to-cart taps
     if (window.innerWidth >= 768) return;
+    if (Date.now() < _focusCooldownUntil) return;
     if (panel.classList.contains('peek')) { panel.classList.add('expanded'); panel.classList.remove('peek'); }
     else { panel.classList.remove('expanded'); panel.classList.add('peek'); }
   };
