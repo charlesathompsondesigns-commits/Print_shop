@@ -100,7 +100,7 @@ const PRODUCTS = [
 // individually-clickable prints rather than a bunched-up pile — all in frame.
 if (IS_MOBILE) {
   const mob = {
-    argentina: { x: -1.5, z: 1.7, yaw: 0.5 },    // left bank, near
+    argentina: { x: -1.05, z: 1.6, yaw: 0.5 },    // left bank, near
     botanical: { x: 1.55, z: 0.3, yaw: -0.5 },   // right bank, mid
     horse: { x: 0.7, z: -3.2, yaw: -0.35 }        // right bank, set back up the stream
   };
@@ -1958,9 +1958,27 @@ function computeFocusPose(card, t) {
   const bottomSheet = window.innerWidth < 768;   // matches the CSS bottom-sheet breakpoint
   if (bottomSheet) {
     // close & large for a crisp print, centred in the open area above the sheet
+    const H = window.innerHeight;
+    if (panel.classList.contains('peek')) {
+      const r = panel.getBoundingClientRect();
+      if (r.height > 20) _peekTop = r.top;
+    }
+    const headerBottom = _cartBtnEl ? _cartBtnEl.getBoundingClientRect().bottom : 64;
+    const clearTop = headerBottom + 10;
+    const clearBottom = _peekTop - 12;
+    const clearMid = (clearTop + clearBottom) * 0.5;
+    const clearH = Math.max(90, clearBottom - clearTop);
+    const vfov = camera.fov * Math.PI / 180;
+    const tanHalf = Math.tan(vfov / 2);
+    const cardH = CARD_H * 1.12;
+    const targetFrac = (clearH / H) * 0.86;
+    let d = cardH / (2 * tanHalf * targetFrac);
+    d = THREE.MathUtils.clamp(d, 2.5, 4.8);
+    const midFromCenter = 0.5 - clearMid / H;
+    const upOffset = midFromCenter * 2 * d * tanHalf;
     _focusPos.copy(camera.position)
-      .addScaledVector(_dir, 2.85)
-      .addScaledVector(camera.up, 0.15);
+      .addScaledVector(_dir, d)
+      .addScaledVector(camera.up, upOffset);
   } else {
     _focusPos.copy(camera.position)
       .addScaledVector(_dir, 2.65)
@@ -1998,6 +2016,8 @@ let _focusCooldownUntil = 0;
 
 const panel = document.getElementById('product-panel');
 const hintBar = document.getElementById('hint-bar');
+const _cartBtnEl = document.getElementById('cart-btn');
+let _peekTop = window.innerHeight * 0.58;
 
 function setPanel(product) {
   document.getElementById('product-subtitle').textContent = product.subtitle;
@@ -2009,63 +2029,66 @@ function setPanel(product) {
   document.getElementById('product-price').textContent = `$${product.price.toFixed(2)}`;
 }
 
+function setSheet(state) {
+  if (state === 'hidden') { panel.classList.remove('open', 'peek', 'expanded'); return; }
+  panel.classList.add('open');
+  if (window.innerWidth >= 768) { panel.classList.remove('peek', 'expanded'); return; }
+  panel.classList.toggle('peek', state === 'peek');
+  panel.classList.toggle('expanded', state === 'expanded');
+}
+
 function focusCard(card) {
   if (focusedCard && focusedCard !== card) unfocusCard(false);
   focusedCard = card;
   card.mode = 'focus';
   card.yaw = 0; card.yawTarget = 0; card.pitch = 0; card.pitchTarget = 0;
   setPanel(card.product);
-  panel.classList.add('open');
-  // mobile: open as a compact peek bar (Add to cart); swipe up reveals details
-  panel.classList.remove('expanded');
-  panel.classList.toggle('peek', window.innerWidth < 768);
+  setSheet('peek');
   closeCartDrawer();
   hintBar.classList.add('hidden');
   audio.swell();
-  _focusCooldownUntil = Date.now() + 450;
+  _focusCooldownUntil = Date.now() + 500;
 }
 
 function unfocusCard(closePanel = true) {
   if (!focusedCard) return;
   focusedCard.mode = 'rest';
   focusedCard = null;
-  if (closePanel) panel.classList.remove('open', 'peek', 'expanded');
+  if (closePanel) setSheet('hidden');
 }
 
-// Mobile sheet gestures: swipe up = expand to full detail, swipe down = collapse / close.
-(function setupSheetSwipe() {
-  let startY = null, startT = 0;
-  const onStart = (e) => { if (Date.now() < _focusCooldownUntil) return; startY = e.touches ? e.touches[0].clientY : e.clientY; startT = Date.now(); };
-  const onEnd = (e) => {
-    if (startY === null) return;
-    const endY = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
-    const dy = endY - startY;
-    startY = null;
-    if (Math.abs(dy) < 36) return;                       // ignore taps / tiny moves
-    if (dy < 0) {                                         // swipe up → expand
-      panel.classList.add('expanded'); panel.classList.remove('peek');
-    } else {                                              // swipe down
-      if (panel.classList.contains('expanded')) {        //   full → peek
-        panel.classList.remove('expanded'); panel.classList.add('peek');
-      } else {                                            //   peek → close, scene returns
-        unfocusCard();
+// Mobile sheet gestures — ONE pointer-driven state machine. Tap the handle/header
+// to toggle peek/expanded; drag up to expand; drag down to collapse, then close.
+// We listen ONLY to pointer events so iOS synthesized events can't flash the sheet.
+(function setupSheet() {
+  let downY = null, downX = null, startState = null, active = false;
+  const onDown = (e) => {
+    if (window.innerWidth >= 768) return;
+    if (IS_MOBILE && e.pointerType === 'mouse') return;
+    if (e.target.closest('button')) return;
+    if (e.target.closest('.sheet-body') && panel.classList.contains('expanded')) return;
+    active = true; downY = e.clientY; downX = e.clientX;
+    startState = panel.classList.contains('expanded') ? 'expanded' : 'peek';
+  };
+  const onUp = (e) => {
+    if (!active) return; active = false;
+    if (IS_MOBILE && e.pointerType === 'mouse') return;
+    const dy = e.clientY - downY, dx = e.clientX - downX;
+    if (Math.abs(dy) < 24 && Math.abs(dx) < 24) {
+      if (Date.now() < _focusCooldownUntil) return;
+      if (e.target.closest('.sheet-handle') || e.target.closest('.sheet-head')) {
+        setSheet(panel.classList.contains('peek') ? 'expanded' : 'peek');
       }
+      return;
+    }
+    if (dy < -28) setSheet('expanded');
+    else if (dy > 28) {
+      if (startState === 'expanded') setSheet('peek');
+      else unfocusCard();
     }
   };
-  panel.addEventListener('touchstart', onStart, { passive: true });
-  panel.addEventListener('touchend', onEnd);
-  // tapping the handle / header also toggles, for non-swipe users
-  const head = document.getElementById('sheet-head');
-  const handle = document.getElementById('sheet-handle');
-  const toggle = (e) => {
-    if (e.target.closest('button')) return;              // don't hijack Add-to-cart taps
-    if (window.innerWidth >= 768) return;
-    if (Date.now() < _focusCooldownUntil) return;
-    if (panel.classList.contains('peek')) { panel.classList.add('expanded'); panel.classList.remove('peek'); }
-    else { panel.classList.remove('expanded'); panel.classList.add('peek'); }
-  };
-  if (head) head.addEventListener('click', toggle);
-  if (handle) handle.addEventListener('click', toggle);
+  panel.addEventListener('pointerdown', onDown);
+  panel.addEventListener('pointerup', onUp);
 })();
 
 function pickCard(clientX, clientY) {
