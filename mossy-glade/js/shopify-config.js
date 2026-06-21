@@ -1,6 +1,6 @@
 export const SHOPIFY = {
   domain: 'charlesa-designs.myshopify.com',
-  storefrontAccessToken: '',
+  storefrontAccessToken: '861b3e286d152c3e148e60d85e6d41b9',
 
   variants: {
     argentina:  '43729762287750',
