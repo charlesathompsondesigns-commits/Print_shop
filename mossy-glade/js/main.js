@@ -164,7 +164,7 @@ try {
 }
 // Mobile: same scene, scaled down so it runs smoothly on touch devices.
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.9 : 1.6));   // sharper prints on phones
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.02;
@@ -240,6 +240,18 @@ const GradeShader = {
 };
 composer.addPass(new ShaderPass(GradeShader));
 composer.addPass(new OutputPass());
+
+function resizeRenderer() {
+  const el = renderer.domElement;
+  const w = el.clientWidth || window.innerWidth;
+  const h = el.clientHeight || window.innerHeight;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, IS_MOBILE ? 1.9 : 1.6));
+  renderer.setSize(w, h, false);
+  composer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resizeRenderer();
 
 // ------------------------------------------------------------
 // Lighting — low golden sun from behind the trees, teal sky fill
@@ -1369,6 +1381,7 @@ const bioPulse = [];
     const side = Math.random() > 0.5 ? 1 : -1;
     const x = streamCenterX(z) + side * (1.25 + Math.random() * 0.9);
     const s = 0.14 + Math.random() * 0.3;
+    if (nearCard(x, z, 1.3 + s)) continue;
     const rock = new THREE.Mesh(makeRockGeo(s, i * 3.1 + 40), mossRockMat);
     rock.position.set(x, groundHeight(x, z) + s * 0.3, z);
     rock.scale.y = 0.6 + Math.random() * 0.3;
@@ -1393,6 +1406,7 @@ const bioPulse = [];
     const x = Math.cos(a) * r, z = Math.sin(a) * r - 2;
     if (Math.abs(x - streamCenterX(z)) < 1.6) continue;
     const s = 0.18 + Math.random() * 0.4;
+    if (nearCard(x, z, 1.3 + s)) continue;
     const cushion = new THREE.Mesh(makeRockGeo(s, i * 5.7 + 90), mossRockMat);
     cushion.position.set(x, groundHeight(x, z) - s * 0.15, z);
     cushion.scale.y = 0.5;
@@ -1958,7 +1972,7 @@ function computeFocusPose(card, t) {
   const bottomSheet = window.innerWidth < 768;   // matches the CSS bottom-sheet breakpoint
   if (bottomSheet) {
     // close & large for a crisp print, centred in the open area above the sheet
-    const H = window.innerHeight;
+    const H = renderer.domElement.clientHeight || window.innerHeight;
     if (panel.classList.contains('peek')) {
       const r = panel.getBoundingClientRect();
       if (r.height > 20) _peekTop = r.top;
@@ -2027,6 +2041,7 @@ function setPanel(product) {
   document.getElementById('product-size').textContent = product.size;
   document.getElementById('product-edition').textContent = product.edition;
   document.getElementById('product-price').textContent = `$${product.price.toFixed(2)}`;
+  panel.dataset.cardKey = product.key;
 }
 
 function setSheet(state) {
@@ -2092,7 +2107,8 @@ function unfocusCard(closePanel = true) {
 })();
 
 function pickCard(clientX, clientY) {
-  pointerNdc.set((clientX / window.innerWidth) * 2 - 1, -(clientY / window.innerHeight) * 2 + 1);
+  const r = cv.getBoundingClientRect();
+  pointerNdc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointerNdc, camera);
   const hits = raycaster.intersectObjects(pickMeshes, false);
   return hits.length ? cards[hits[0].object.userData.cardIndex] : null;
@@ -2283,9 +2299,19 @@ document.getElementById('cart-btn').addEventListener('click', () => {
   cartDrawer.classList.contains('open') ? closeCartDrawer() : openCartDrawer();
 });
 document.getElementById('cart-close').addEventListener('click', closeCartDrawer);
-document.getElementById('add-to-cart').addEventListener('click', () => {
-  if (focusedCard) addToCart(focusedCard.product.key);
-});
+(function () {
+  const addBtn = document.getElementById('add-to-cart');
+  let lastAdd = 0;
+  const doAdd = () => {
+    const now = Date.now();
+    if (now - lastAdd < 450) return;
+    lastAdd = now;
+    const key = focusedCard ? focusedCard.product.key : panel.dataset.cardKey;
+    if (key) addToCart(key);
+  };
+  addBtn.addEventListener('pointerup', (e) => { e.preventDefault(); e.stopPropagation(); doAdd(); });
+  addBtn.addEventListener('click', doAdd);
+})();
 
 let toastTimer;
 const toastEl = document.getElementById('toast');
@@ -2404,12 +2430,9 @@ function animate() {
 }
 animate();
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-});
+window.addEventListener('resize', resizeRenderer);
+window.addEventListener('orientationchange', () => setTimeout(resizeRenderer, 120));
+if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeRenderer);
 
 // Console/integration hooks (handy for testing and future Shopify wiring)
 window.__glade = {
