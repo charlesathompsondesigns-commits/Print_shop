@@ -2027,6 +2027,9 @@ let pointerDown = false;
 let dragging = false;
 let downX = 0, downY = 0, lastX = 0, lastY = 0, moveTotal = 0;
 let _focusCooldownUntil = 0;
+let _lastTouchTime = -99999;
+window.addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') _lastTouchTime = Date.now(); }, true);
+const isGhostMouse = (e) => e.pointerType === 'mouse' && (Date.now() - _lastTouchTime) < 800;
 
 const panel = document.getElementById('product-panel');
 const hintBar = document.getElementById('hint-bar');
@@ -2080,7 +2083,7 @@ function unfocusCard(closePanel = true) {
   let downY = null, downX = null, startState = null, active = false;
   const onDown = (e) => {
     if (window.innerWidth >= 768) return;
-    if (IS_MOBILE && e.pointerType === 'mouse') return;
+    if (isGhostMouse(e)) return;
     if (e.target.closest('button')) return;
     if (e.target.closest('.sheet-body') && panel.classList.contains('expanded')) return;
     active = true; downY = e.clientY; downX = e.clientX;
@@ -2088,7 +2091,7 @@ function unfocusCard(closePanel = true) {
   };
   const onUp = (e) => {
     if (!active) return; active = false;
-    if (IS_MOBILE && e.pointerType === 'mouse') return;
+    if (isGhostMouse(e)) return;
     const dy = e.clientY - downY, dx = e.clientX - downX;
     if (Math.abs(dy) < 24 && Math.abs(dx) < 24) {
       if (Date.now() < _focusCooldownUntil) return;
@@ -2156,7 +2159,7 @@ cv.addEventListener('pointermove', (e) => {
 });
 
 cv.addEventListener('pointerup', (e) => {
-  if (IS_MOBILE && e.pointerType === 'mouse') return;
+  if (isGhostMouse(e)) return;
   pointerDown = false;
   const wasDrag = dragging;
   dragging = false;
