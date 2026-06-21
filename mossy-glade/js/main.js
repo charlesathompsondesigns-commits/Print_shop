@@ -2030,6 +2030,7 @@ let _focusCooldownUntil = 0;
 
 const panel = document.getElementById('product-panel');
 const hintBar = document.getElementById('hint-bar');
+if (IS_MOBILE) hintBar.textContent = 'Touch a card to begin';
 const _cartBtnEl = document.getElementById('cart-btn');
 let _peekTop = window.innerHeight * 0.58;
 
