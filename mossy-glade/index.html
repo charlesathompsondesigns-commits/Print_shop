@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#b9c2b2" />
 <title>The Mossy Glade — Prints by Charles</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -20,7 +21,7 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; overflow: hidden;
-    width: 100%; height: 100dvh;
+    width: 100%; height: 100%;
     background: #16240f;
     font-family: 'Inter', -apple-system, sans-serif;
     color: var(--ink);
@@ -28,7 +29,7 @@
   }
   /* inset:0 stretches the canvas to the FULL screen — under the status bar and
      under Safari's URL bar — for a true edge-to-edge scene (no letterbox crop). */
-  canvas { display: block; touch-action: none; position: fixed; inset: 0; width: 100vw; height: 100dvh; }
+  canvas { display: block; touch-action: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
 
   /* ---------- vignette ---------- */
   #vignette {
@@ -70,13 +71,13 @@
 
   /* ---------- HUD ---------- */
   #hud-title {
-    position: fixed; top: 26px; left: 28px; z-index: 20; pointer-events: none;
+    position: fixed; top: calc(26px + env(safe-area-inset-top)); left: 28px; z-index: 20; pointer-events: none;
     text-shadow: 0 1px 12px rgba(0,0,0,0.55);
   }
   #hud-title h1 { font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 24px; margin: 0; letter-spacing: 0.06em; }
   #hud-title span { display: block; font-size: 9.5px; letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-dim); margin-top: 5px; font-weight: 300; }
 
-  .hud-controls { position: fixed; top: 22px; right: 24px; z-index: 30; display: flex; gap: 10px; }
+  .hud-controls { position: fixed; top: calc(22px + env(safe-area-inset-top)); right: 24px; z-index: 30; display: flex; gap: 10px; }
   /* Cart is a labeled pill so it reads clearly as "your cart" */
   #cart-btn {
     display: flex; align-items: center; gap: 10px;
