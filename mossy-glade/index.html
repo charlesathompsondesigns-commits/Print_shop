@@ -277,24 +277,27 @@
 <div id="boot-error" style="display:none; position:fixed; top:0; left:0; right:0; z-index:2000; background:#3a1414; color:#ffd9d9; font:12px/1.6 -apple-system, sans-serif; padding:12px 18px; white-space:pre-wrap;"></div>
 <script>
   (function () {
-    var box = null;
-    function show(msg) {
+    var box = null, log = [], shown = false;
+    function render() {
       if (!box) box = document.getElementById('boot-error');
       if (!box) return;
       box.style.display = 'block';
-      box.textContent += msg + '\n';
+      box.textContent = log.join('\n') + '\n';
     }
-    window.__bootError = show;
+    function showFatal(msg) { log.push(msg); shown = true; render(); }
+    window.__bootError = showFatal;
     window.addEventListener('error', function (e) {
-      show('Error: ' + (e.message || 'unknown') + (e.filename ? '  [' + e.filename.split('/').slice(-2).join('/') + ':' + e.lineno + ']' : ''));
+      log.push('Error: ' + (e.message || 'unknown') + (e.filename ? '  [' + e.filename.split('/').slice(-2).join('/') + ':' + e.lineno + ']' : ''));
+      if (shown) render();
     }, true);
     window.addEventListener('unhandledrejection', function (e) {
-      show('Promise error: ' + (e.reason && (e.reason.message || e.reason)));
+      log.push('Promise error: ' + (e.reason && (e.reason.message || e.reason)));
+      if (shown) render();
     });
     window.addEventListener('load', function () {
       setTimeout(function () {
-        if (!window.__glade) show('The 3D engine did not start within 8 seconds. ' +
-          (window.WebGL2RenderingContext ? 'Check the messages above.' : 'This browser does not support WebGL2.'));
+        if (!window.__glade) showFatal('The 3D engine did not start within 8 seconds. ' +
+          (window.WebGL2RenderingContext ? '' : 'This browser does not support WebGL2.'));
       }, 8000);
     });
   })();
