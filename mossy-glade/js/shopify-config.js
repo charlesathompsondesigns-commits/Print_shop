@@ -4,9 +4,9 @@ export const SHOPIFY = {
 
   variants: {
     argentina:  '43729762287750',
-    botanical:  '44077629309062',
-    horse:      '44077638582406',
-    neworleans: '44077650739334'
+    botanical:  '44093765943430',
+    horse:      '44093766336646',
+    neworleans: '44093766369414'
   }
 };
 
