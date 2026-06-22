@@ -2281,20 +2281,32 @@ cartItemsEl.addEventListener('click', (e) => {
   renderCart();
 });
 
-checkoutBtn.addEventListener('click', async () => {
-  checkoutBtn.disabled = true;
-  checkoutBtn.textContent = 'Opening…';
-  try {
-    const url = await buildCheckoutUrl(cart.map(it => ({ variantKey: it.key, qty: it.qty })));
-    if (url) { window.location.href = url; return; }
-    showToast('Demo mode — connect Shopify in js/shopify-config.js');
-  } catch (err) {
-    showToast('Could not open checkout — please try again.');
-  } finally {
-    checkoutBtn.disabled = cart.length === 0;
-    checkoutBtn.textContent = 'Checkout';
-  }
-});
+(function () {
+  let busy = false, lastFire = 0;
+  const doCheckout = async () => {
+    const now = Date.now();
+    if (busy || now - lastFire < 600) return;
+    lastFire = now;
+    if (!cart.length) return;
+    busy = true;
+    checkoutBtn.disabled = true;
+    checkoutBtn.textContent = 'Opening…';
+    try {
+      const url = await buildCheckoutUrl(cart.map(it => ({ variantKey: it.key, qty: it.qty })));
+      if (url) { window.location.href = url; return; }
+      showToast('Demo mode — connect Shopify in js/shopify-config.js');
+    } catch (err) {
+      console.error('[checkout]', err);
+      showToast('Could not open checkout — please try again.');
+    } finally {
+      busy = false;
+      checkoutBtn.disabled = cart.length === 0;
+      checkoutBtn.textContent = 'Checkout';
+    }
+  };
+  checkoutBtn.addEventListener('pointerup', (e) => { e.preventDefault(); doCheckout(); });
+  checkoutBtn.addEventListener('click', doCheckout);
+})();
 
 function openCartDrawer() { renderCart(); cartDrawer.classList.add('open'); if (focusedCard) unfocusCard(); }
 function closeCartDrawer() { cartDrawer.classList.remove('open'); }
